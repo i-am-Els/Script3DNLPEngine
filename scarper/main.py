@@ -14,7 +14,6 @@ SAVE_DIR = "screenplays"
 UPPER_PAGE_NUM = 17
 os.makedirs(SAVE_DIR, exist_ok=True)
 CSV_FILE = f"{SAVE_DIR}/screenplays.csv"
-csv_cache = []
 
 def get_driver():
     """Initialize the Selenium WebDriver for Firefox."""
@@ -47,7 +46,7 @@ def get_all_screenplay_links(driver):
         if link and link.startswith(BASE_URL):
             screenplay_links.append(link)
 
-    return list(set(screenplay_links))  # Remove duplicates
+    return list(screenplay_links)  # Remove duplicates
 
 def sanitize_filename(filename):
     """Remove invalid characters from filenames."""
@@ -67,13 +66,12 @@ def scrape_screenplay(driver, link, count):
     read_button = driver.find_element(By.CSS_SELECTOR, ".js-button-read")
     pdf_link = read_button.get_attribute("href") if read_button else None
 
-    # Save to a cache tuple
-    csv_cache.append(list[count, sanitized_title, link, pdf_link])
-
     # Download the PDF if the link exists
     if pdf_link:
         download_pdf(pdf_link, f"{count:03d}_{sanitized_title}.pdf")
 
+    # Save to a cache tuple
+    return [count, sanitized_title, link, pdf_link]
 
 def download_pdf(pdf_url, filename):
     """Download the PDF file and save it."""
@@ -99,16 +97,15 @@ def main():
 
         print(f"Found {len(links)} screenplays. Scraping up to 510...")
 
-        # Step 2: Limit to 510 screenplays
-        for count, link in enumerate(links[:510], start=1):
-            scrape_screenplay(driver, link, count)
-
-        # Step 3: Write all csv cache tuples to csv file
         with open(CSV_FILE, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(["Serial Number", "Title", "Page Link", "PDF Link"])
-            writer.writerows(csv_cache)
-            print(f"Saved CSV file: {CSV_FILE}")
+            # Step 2: Limit to 510 screenplays
+            for count, link in enumerate(links[:510], start=1):
+                csv_cache = scrape_screenplay(driver, link, count)
+                writer.writerow(csv_cache)
+                print(f"Saved CSV file: {CSV_FILE}")
+
 
     finally:
         driver.quit()
