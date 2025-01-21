@@ -9,11 +9,10 @@ import os
 import time
 from pathlib import Path
 
-BASE_URL = "https://www.scriptslug.com"
-SAVE_DIR = "screenplays"
-UPPER_PAGE_NUM = 17
+from scarper.consts import SAVE_DIR, BASE_URL, CSV_FILE, UPPER_PAGE_NUM
+from scarper.download import download_pdf
+
 os.makedirs(SAVE_DIR, exist_ok=True)
-CSV_FILE = f"{SAVE_DIR}/screenplays.csv"
 
 def get_driver():
     """Initialize the Selenium WebDriver for Firefox."""
@@ -71,22 +70,30 @@ def scrape_screenplay(driver, link, count):
         download_pdf(pdf_link, f"{count:03d}_{sanitized_title}.pdf")
 
     # Save to a cache tuple
-    return [count, sanitized_title, link, pdf_link]
+    return [count, sanitized_title, link, pdf_link, "True"]
 
-def download_pdf(pdf_url, filename):
-    """Download the PDF file and save it."""
-    import requests
-    response = requests.get(pdf_url)
-    if response.status_code == 200:
-        file_path = os.path.join(str(Path(SAVE_DIR).absolute()), filename)
-        with open(file_path, 'wb') as f:
-            f.write(response.content)
-        print(f"Downloaded PDF: {filename}")
-    else:
-        print(f"Failed to download PDF: {pdf_url}")
+def get_last_serial_number(csv_file):
+    """Retrieve the serial number of the last processed screenplay."""
+    if not os.path.exists(csv_file):
+        return 0  # Start fresh if no CSV file exists
+
+    with open(csv_file, 'r', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        header = next(reader, None)  # Skip header
+        last_row = None
+        for last_row in reader:
+            pass  # Get the last row
+
+        if last_row and last_row[0].isdigit():
+            return int(last_row[0])  # Return the last serial number
+
+    return 0
 
 
 def main():
+    # Get the last serial number from the CSV file
+    last_serial = get_last_serial_number(CSV_FILE)
+    print(f"Last serial number: {last_serial}")
     driver = get_driver()
     try:
         # Step 1: Get all screenplay links
@@ -97,14 +104,16 @@ def main():
 
         print(f"Found {len(links)} screenplays. Scraping up to 510...")
 
-        with open(CSV_FILE, 'w', newline='') as f:
+        with open(CSV_FILE, 'a', encoding="utf-8", newline='') as f:
+
             writer = csv.writer(f)
-            writer.writerow(["Serial Number", "Title", "Page Link", "PDF Link"])
+            if last_serial == 0:
+                writer.writerow(["Serial Number", "Title", "Page Link", "PDF Link", "Download Status"])
             # Step 2: Limit to 510 screenplays
-            for count, link in enumerate(links[:510], start=1):
+            for count, link in enumerate(links[last_serial:], start=last_serial+1):
                 csv_cache = scrape_screenplay(driver, link, count)
                 writer.writerow(csv_cache)
-                print(f"Saved CSV file: {CSV_FILE}")
+                print(f"Saved {csv_cache[0]} CSV file: {csv_cache[1]}")
 
 
     finally:
