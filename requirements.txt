@@ -6,8 +6,9 @@ scipy
 scikit-learn
 spacy
 lxml
-beautifulsoup4
+beautifulsoup4~=4.12.3
 requests
-selenium
+selenium~=4.27.1
 webdriver-manager
 label-studio
+PyMuPDF
